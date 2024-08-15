@@ -107,8 +107,9 @@ const Map = () => {
   };
 
   const handleSetupRoute = () => {
-    setCurrentRoute(route.route || []);
-    setVehiclePosition(route.route[0]);
+    if(!route) return;
+    setCurrentRoute(route?.route || []);
+    setVehiclePosition(route?.route[0]);
     setShowRouteModal(false);
     setShowProgressModal(true);
     setProgress(0);
