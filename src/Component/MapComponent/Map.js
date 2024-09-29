@@ -10,9 +10,12 @@ import { MdReplay } from "react-icons/md";
 import { FaStop } from "react-icons/fa";
 import { CARS } from "../../Utils/car";
 import { computeRoutePositions } from "../../Utils/ComputeRoutePosition";
+import axios from "axios";
 import "./map.css";
+import Spinner from "../Spinner/Spinner";
 
-// Default center position (India)
+const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
 const initialPosition = [20.5937, 78.9629]; // Center of India
 
 const carIcon = (rotation, carColor) =>
@@ -41,7 +44,7 @@ L.LatLng.prototype.bearingTo = function (latlng) {
 
   const bearing = Math.atan2(y, x) * (180 / Math.PI);
 
-  return (bearing + 360) % 360; // Normalize to 0-360 degrees
+  return (bearing + 360) % 360;
 };
 
 const Map = () => {
@@ -58,12 +61,13 @@ const Map = () => {
   const [selectedCar, setSelectCar] = useState("yellow");
   const [showCarMenu, setShowCarMenu] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [speed, setSpeed] = useState(100);
   const progressBarRef = useRef(null);
 
   useEffect(() => {
     if (currentRoute.length) {
-      const positions = computeRoutePositions(currentRoute, 100, L);
+      const positions = computeRoutePositions(route?.route, 100, L);
       setRoutePositions(positions);
     }
   }, [currentRoute]);
@@ -101,15 +105,27 @@ const Map = () => {
     setBearing(bearing);
   };
 
-  const handleRouteSelect = (index) => {
-    setRoute(routes[index]);
+  const handleRouteSelect = async (index) => {
+    if(loading) return;
+    setLoading(true);
     setShowMenu(false);
+      try {
+        const res = await axios.get(`${backendUrl}track/${index + 1}`);
+        setRoute(res?.data);
+        setLoading(false);
+      } catch (err) {
+        setLoading(false);
+        console.log(err);
+      }
   };
 
   const handleSetupRoute = () => {
-    if(!route) return;
-    setCurrentRoute(route?.route || []);
-    setVehiclePosition(route?.route[0]);
+    if (!route) return;
+    const arr =
+      route?.route?.map((point) => [point.latitude, point.longitude]) || [];
+
+    setCurrentRoute(arr);
+    setVehiclePosition([route?.route[0].latitude, route?.route[0].longitude]);
     setShowRouteModal(false);
     setShowProgressModal(true);
     setProgress(0);
@@ -123,7 +139,7 @@ const Map = () => {
     setIsMoving(false);
   };
   const handleReplay = () => {
-    setVehiclePosition(currentRoute[0]);
+    setVehiclePosition([currentRoute[0].latitude, currentRoute[0].longitude]);
     setProgress(0);
     setIsMoving(false);
   };
@@ -177,7 +193,7 @@ const Map = () => {
           }}
         />
       )}
-      {currentRoute.length > 0 && (
+      {currentRoute?.length > 0 && (
         <Polyline positions={currentRoute} color="red" />
       )}
 
@@ -475,7 +491,7 @@ const Map = () => {
               </div>
             )}
             <button className="showBtn" onClick={handleSetupRoute}>
-              Show
+              {loading?<Spinner />:"Show"}
             </button>
           </div>
         </div>
@@ -548,7 +564,7 @@ const Map = () => {
               className="speedTracker"
             ></div>
             <div
-             className="progressDotIcon"
+              className="progressDotIcon"
               style={{
                 left: `${(speed / 100) * 50}px`,
                 backgroundColor: "blue",
